@@ -67,7 +67,7 @@ const colors = computed(() => GEM_COLORS[props.type] ?? GEM_COLORS[0])
 .gem-tile.selected {
   transform: scale(1.1);
   z-index: 5;
-  animation: tileSelected 0.8s ease-in-out infinite;
+  animation: tileSelected 0.6s ease-in-out infinite;
 }
 
 .gem-tile.selected::before {

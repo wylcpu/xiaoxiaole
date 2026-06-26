@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import type { Gem, Position, GameState } from '../types/game'
 import GemTile from './GemTile.vue'
 
@@ -66,25 +66,25 @@ function onPointerUp(e: PointerEvent) {
   const dist = Math.sqrt(dx * dx + dy * dy)
   const threshold = 15
 
-  if (dist > threshold) {
-    // Swipe gesture
-    let targetRow = touchStart.value.row
-    let targetCol = touchStart.value.col
-    if (Math.abs(dx) > Math.abs(dy)) {
-      targetCol += dx > 0 ? 1 : -1
+    if (dist > threshold) {
+      // Swipe gesture — emit both positions immediately
+      let targetRow = touchStart.value.row
+      let targetCol = touchStart.value.col
+      if (Math.abs(dx) > Math.abs(dy)) {
+        targetCol += dx > 0 ? 1 : -1
+      } else {
+        targetRow += dy > 0 ? 1 : -1
+      }
+      if (targetRow >= 0 && targetRow < props.gridSize && targetCol >= 0 && targetCol < props.gridSize) {
+        emit('select', { row: touchStart.value.row, col: touchStart.value.col })
+        nextTick(() => {
+          emit('select', { row: targetRow, col: targetCol })
+        })
+      }
     } else {
-      targetRow += dy > 0 ? 1 : -1
+      // Tap
+      emit('select', cell)
     }
-    if (targetRow >= 0 && targetRow < props.gridSize && targetCol >= 0 && targetCol < props.gridSize) {
-      emit('select', { row: touchStart.value.row, col: touchStart.value.col })
-      setTimeout(() => {
-        emit('select', { row: targetRow, col: targetCol })
-      }, 10)
-    }
-  } else {
-    // Tap
-    emit('select', cell)
-  }
 
   touchStart.value = null
 }
@@ -169,20 +169,21 @@ function onPointerUp(e: PointerEvent) {
 }
 
 .gem-wrapper {
-  transition: top 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-              left 0.2s ease,
-              opacity 0.3s ease,
-              transform 0.3s ease;
+  transition: top 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+              left 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+              opacity 0.25s ease,
+              transform 0.25s ease;
   z-index: 1;
 }
 
 .gem-wrapper.matched {
-  animation: gemMatched 0.4s ease-out forwards;
+  animation: gemMatched 0.3s ease-out forwards;
   z-index: 3;
+  pointer-events: none;
 }
 
 .gem-wrapper.is-new {
-  animation: gemAppear 0.35s ease-out;
+  animation: gemAppear 0.25s ease-out;
 }
 
 .gem-wrapper.selected {
@@ -199,20 +200,23 @@ function onPointerUp(e: PointerEvent) {
     transform: scale(1);
     opacity: 1;
   }
-  40% {
-    transform: scale(1.25);
-    opacity: 0.8;
+  30% {
+    transform: scale(1.2);
+    opacity: 0.9;
   }
   100% {
-    transform: scale(0);
+    transform: scale(0.2);
     opacity: 0;
   }
 }
 
 @keyframes gemAppear {
   from {
-    transform: scale(0) translateY(-20px);
+    transform: scale(0.3) translateY(-12px);
     opacity: 0;
+  }
+  60% {
+    opacity: 1;
   }
   to {
     transform: scale(1) translateY(0);
@@ -226,7 +230,7 @@ function onPointerUp(e: PointerEvent) {
     filter: drop-shadow(0 0 6px rgba(255,255,255,0.3));
   }
   50% {
-    transform: scale(1.08);
+    transform: scale(1.06);
     filter: drop-shadow(0 0 14px rgba(255,255,255,0.5));
   }
 }

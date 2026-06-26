@@ -205,7 +205,7 @@ export function useGameLogic(levelConfig: LevelConfig) {
         const gem = getGem(p.row, p.col)
         if (gem) gem.matched = true
       }
-      await delay(400)
+      await delay(280)
 
       // Remove from board
       for (const p of positions) {
@@ -219,12 +219,12 @@ export function useGameLogic(levelConfig: LevelConfig) {
       // Apply gravity
       gameState.value = 'dropping'
       applyGravity()
-      await delay(350)
+      await delay(220)
 
       // Fill empty
       gameState.value = 'filling'
       fillEmpty()
-      await delay(350)
+      await delay(220)
 
       // Reset flags
       for (let r = 0; r < gridSize; r++) {
@@ -342,14 +342,14 @@ export function useGameLogic(levelConfig: LevelConfig) {
 
     gameState.value = 'swapping'
     swapOnly(pos1.row, pos1.col, pos2.row, pos2.col)
-    await delay(200)
+    await delay(160)
 
     const groups = findMatchGroups()
     if (groups.length === 0) {
       // Invalid swap → revert
       gameState.value = 'reverting'
       swapOnly(pos1.row, pos1.col, pos2.row, pos2.col)
-      await delay(200)
+      await delay(160)
       gameState.value = 'idle'
       return
     }
