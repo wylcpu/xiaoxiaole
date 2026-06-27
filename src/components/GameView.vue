@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { reactive, watch, ref } from 'vue'
 import { useGameLogic } from '../composables/useGameLogic'
 import { useLevels } from '../composables/useLevels'
 import type { LevelConfig } from '../types/game'
@@ -48,6 +48,8 @@ watch(
       clearTimeout(comboTimeout)
       displayCombo.value = val
       displayCombo.key++
+      // Trigger screen flash
+      triggerFlash()
     } else if (val === 0) {
       comboTimeout = window.setTimeout(() => {
         displayCombo.value = 0
@@ -55,10 +57,27 @@ watch(
     }
   }
 )
+
+// Screen flash on combo
+const flashVisible = ref(false)
+let flashTimer = 0
+
+function triggerFlash() {
+  flashVisible.value = true
+  clearTimeout(flashTimer)
+  flashTimer = window.setTimeout(() => {
+    flashVisible.value = false
+  }, 250)
+}
 </script>
 
 <template>
   <div class="game-view">
+    <!-- Screen flash overlay -->
+    <Transition name="flash-fade">
+      <div v-if="flashVisible" class="combo-flash"></div>
+    </Transition>
+
     <TopBar
       :level="level"
       :score="game.score"
@@ -79,10 +98,11 @@ watch(
       />
     </div>
 
-    <!-- Cascading combo indicator -->
-    <Transition name="fade">
+    <!-- Cascading combo indicator (enhanced) -->
+    <Transition name="combo-enter">
       <div v-if="displayCombo.value > 1" :key="displayCombo.key" class="combo-indicator">
-        {{ displayCombo.value }}x 连击！
+        <span class="combo-x">{{ displayCombo.value }}x</span>
+        <span class="combo-text">连击！</span>
       </div>
     </Transition>
   </div>
@@ -95,6 +115,7 @@ watch(
   width: 100%;
   flex: 1;
   overflow: hidden;
+  position: relative;
 }
 
 .board-area {
@@ -107,42 +128,95 @@ watch(
   min-height: 0;
 }
 
+/* ========== Combo Flash Overlay ========== */
+.combo-flash {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.20), rgba(255, 212, 59, 0.08) 40%, transparent 70%);
+  pointer-events: none;
+  z-index: 40;
+  animation: flashPulse 0.25s ease-out forwards;
+}
+
+@keyframes flashPulse {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.flash-fade-enter-active,
+.flash-fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+.flash-fade-enter-from,
+.flash-fade-leave-to {
+  opacity: 0;
+}
+
+/* ========== Combo Indicator (Enhanced) ========== */
 .combo-indicator {
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: clamp(24px, 6vw, 48px);
-  font-weight: 800;
-  color: #ffd43b;
-  text-shadow: 0 4px 30px rgba(255, 212, 59, 0.6), 0 0 60px rgba(255, 107, 107, 0.3);
   pointer-events: none;
-  animation: comboPop 0.3s ease-out;
   z-index: 50;
   white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  animation: comboAppear 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-@keyframes comboPop {
+.combo-x {
+  font-family: 'Orbitron', 'Nunito', monospace;
+  font-size: clamp(36px, 8vw, 64px);
+  font-weight: 900;
+  background: linear-gradient(135deg, #ffd43b, #ff6b6b, #cc5de8, #6bb5ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 0 20px rgba(255, 212, 59, 0.4)) drop-shadow(0 0 40px rgba(255, 107, 107, 0.2));
+  line-height: 1;
+}
+
+.combo-text {
+  font-size: clamp(14px, 3vw, 24px);
+  font-weight: 800;
+  color: #fff;
+  text-shadow:
+    0 0 15px rgba(255, 212, 59, 0.5),
+    0 0 30px rgba(255, 107, 107, 0.3);
+  letter-spacing: 2px;
+}
+
+@keyframes comboAppear {
   0% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.3);
+    transform: translate(-50%, -50%) scale(0.3) rotate(-10deg);
   }
   50% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1.2);
+    transform: translate(-50%, -50%) scale(1.2) rotate(3deg);
   }
   100% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
   }
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.4s ease;
+/* Combo transition */
+.combo-enter-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
-.fade-enter-from,
-.fade-leave-to {
+.combo-enter-from {
   opacity: 0;
+  transform: translate(-50%, -50%) scale(0.5);
+}
+.combo-enter-to {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 </style>

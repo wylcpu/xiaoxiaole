@@ -133,6 +133,7 @@ const progressPercent = computed(() => {
         @click="selectArea(index)"
       >
         <div class="area-bg"></div>
+        <div class="area-glow"></div>
         <div class="area-content">
           <div class="area-left">
             <span class="area-name">{{ area.name }}</span>
@@ -227,11 +228,12 @@ const progressPercent = computed(() => {
 }
 
 .ls-title {
-  font-size: 28px;
+  font-family: 'Playfair Display', 'Nunito', serif;
+  font-size: 32px;
   font-weight: 800;
   color: #fff;
-  text-shadow: 0 2px 12px rgba(240, 147, 251, 0.3);
-  letter-spacing: 2px;
+  text-shadow: 0 2px 20px rgba(240, 147, 251, 0.4), 0 0 40px rgba(240, 147, 251, 0.15);
+  letter-spacing: 3px;
 }
 
 .ls-subtitle {
@@ -260,8 +262,16 @@ const progressPercent = computed(() => {
 .ls-progress-fill {
   height: 100%;
   border-radius: 3px;
-  background: linear-gradient(90deg, #f093fb, #f5576c);
+  background: linear-gradient(90deg, #f093fb, #f5576c, #ffd43b);
+  background-size: 200% 100%;
   transition: width 0.5s ease;
+  animation: barShimmer 3s ease-in-out infinite;
+}
+
+@keyframes barShimmer {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 0%; }
+  100% { background-position: 0% 0%; }
 }
 
 .ls-progress-text {
@@ -289,18 +299,27 @@ const progressPercent = computed(() => {
   font-family: inherit;
   aspect-ratio: 1.4;
   overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
   box-shadow: 0 4px 20px rgba(0,0,0,0.3);
   min-height: 90px;
   -webkit-tap-highlight-color: transparent;
 }
 
+.area-card:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4), 0 0 20px var(--area-shadow);
+}
+
 .area-card:active {
-  transform: scale(0.96);
+  transform: scale(0.95);
 }
 
 .area-card.area-current {
   box-shadow: 0 0 0 2px rgba(255,255,255,0.3), 0 4px 24px var(--area-shadow);
+}
+
+.area-card.area-current:hover {
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.4), 0 8px 32px var(--area-shadow), 0 0 24px var(--area-shadow);
 }
 
 .area-bg {
@@ -308,6 +327,26 @@ const progressPercent = computed(() => {
   inset: 0;
   background: var(--area-grad);
   opacity: 0.85;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.area-card:hover .area-bg {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+/* Area glow effect */
+.area-glow {
+  position: absolute;
+  inset: -20px;
+  background: radial-gradient(circle at 50% 50%, var(--area-shadow), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.area-card:hover .area-glow {
+  opacity: 0.6;
 }
 
 .area-content {
@@ -396,8 +435,14 @@ const progressPercent = computed(() => {
   -webkit-tap-highlight-color: transparent;
 }
 
+.ls-reset-btn:hover {
+  background: rgba(255, 107, 107, 0.15);
+  color: #ff6b6b;
+  border-color: rgba(255, 107, 107, 0.3);
+}
+
 .ls-reset-btn:active {
-  background: rgba(255, 107, 107, 0.2);
+  background: rgba(255, 107, 107, 0.25);
   color: #ff6b6b;
   border-color: #ff6b6b;
 }
@@ -431,12 +476,18 @@ const progressPercent = computed(() => {
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.2s;
   -webkit-tap-highlight-color: transparent;
 }
 
+.lgv-back:hover {
+  background: rgba(255,255,255,0.18);
+  transform: scale(1.05);
+}
+
 .lgv-back:active {
-  background: rgba(255,255,255,0.20);
+  background: rgba(255,255,255,0.25);
+  transform: scale(0.92);
 }
 
 .lgv-title-area {
@@ -490,7 +541,7 @@ const progressPercent = computed(() => {
   align-items: center;
   justify-content: center;
   gap: 1px;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   min-height: 44px;
   min-width: 44px;
   -webkit-tap-highlight-color: transparent;
@@ -501,6 +552,12 @@ const progressPercent = computed(() => {
   background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05));
   color: #fff;
   border-color: rgba(255,255,255,0.08);
+}
+
+.lgv-btn:not(.locked):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  border-color: rgba(255,255,255,0.15);
 }
 
 .lgv-btn:not(.locked):active {
@@ -531,11 +588,26 @@ const progressPercent = computed(() => {
   background: linear-gradient(135deg, rgba(255,212,59,0.10), rgba(255,212,59,0.04));
 }
 
+/* Starred state with gradient border */
+.lgv-btn.starred1 {
+  border-color: rgba(255, 212, 59, 0.3);
+  box-shadow: 0 0 12px rgba(255, 212, 59, 0.1);
+}
+
+.lgv-btn.starred2 {
+  border-color: rgba(255, 212, 59, 0.4);
+  box-shadow: 0 0 16px rgba(255, 212, 59, 0.15);
+  background: linear-gradient(135deg, rgba(255, 212, 59, 0.12), rgba(255, 212, 59, 0.05));
+}
+
 .lgv-btn.starred3 {
-  border-color: rgba(255,212,59,0.25);
+  border-color: rgba(255, 212, 59, 0.5);
+  box-shadow: 0 0 20px rgba(255, 212, 59, 0.2);
+  background: linear-gradient(135deg, rgba(255, 212, 59, 0.15), rgba(255, 212, 59, 0.06));
 }
 
 .lgv-btn-num {
+  font-family: 'Orbitron', 'Nunito', monospace;
   font-size: clamp(12px, 3.2vw, 16px);
   font-weight: 700;
   line-height: 1.1;
@@ -546,20 +618,38 @@ const progressPercent = computed(() => {
   line-height: 1;
   color: #ffd43b;
   pointer-events: none;
+  text-shadow: 0 0 8px rgba(255, 212, 59, 0.5);
 }
 
+/* "NEW" badge with bounce animation */
 .lgv-btn-new {
   position: absolute;
-  top: -4px;
-  right: -4px;
+  top: -5px;
+  right: -5px;
   font-size: 7px;
   font-weight: 800;
   color: #fff;
-  background: #f5576c;
+  background: linear-gradient(135deg, #f5576c, #f093fb);
   padding: 1px 5px;
   border-radius: 6px;
   letter-spacing: 0.3px;
   line-height: 1.2;
+  animation: newBadgePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 2px 8px rgba(245, 87, 108, 0.4);
+}
+
+@keyframes newBadgePop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .lgv-pages {
@@ -585,13 +675,18 @@ const progressPercent = computed(() => {
   -webkit-tap-highlight-color: transparent;
 }
 
+.lgv-page-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.20);
+  transform: scale(1.08);
+}
+
 .lgv-page-btn:disabled {
   opacity: 0.25;
   cursor: not-allowed;
 }
 
 .lgv-page-btn:not(:disabled):active {
-  background: rgba(255,255,255,0.20);
+  background: rgba(255,255,255,0.25);
   transform: scale(0.92);
 }
 

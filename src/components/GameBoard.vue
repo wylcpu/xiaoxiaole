@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import type { Gem, Position, GameState } from '../types/game'
+import { GEM_COLORS } from '../types/game'
 import GemTile from './GemTile.vue'
 
 const props = defineProps<{
@@ -11,12 +12,75 @@ const props = defineProps<{
   selectedPos: Position | null
 }>()
 
+// Grid dots at intersections
+const gridDots = computed(() => {
+  const dots: { row: number; col: number }[] = []
+  for (let r = 0; r < props.gridSize; r++) {
+    for (let c = 0; c < props.gridSize; c++) {
+      dots.push({ row: r, col: c })
+    }
+  }
+  return dots
+})
+
 const emit = defineEmits<{
   select: [pos: Position]
 }>()
 
 const boardRef = ref<HTMLElement | null>(null)
 const touchStart = ref<{ x: number; y: number; row: number; col: number } | null>(null)
+
+// ========== Particle System ==========
+interface Particle {
+  id: number
+  x: number
+  y: number
+  color: string
+  tx: number
+  ty: number
+  size: number
+  delay: number
+}
+
+const particles = ref<Particle[]>([])
+let particleId = 0
+
+function spawnBurst(gem: Gem) {
+  const color = GEM_COLORS[gem.type]?.shadow || '#fff'
+  const cx = (gem.col + 0.5) * (100 / props.gridSize)
+  const cy = (gem.row + 0.5) * (100 / props.gridSize)
+
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2 + (Math.random() - 0.5) * 0.5
+    const speed = 6 + Math.random() * 6
+    const id = particleId++
+    particles.value.push({
+      id,
+      x: cx,
+      y: cy,
+      color,
+      tx: Math.cos(angle) * speed,
+      ty: Math.sin(angle) * speed,
+      size: 3 + Math.random() * 5,
+      delay: Math.random() * 0.08,
+    })
+    // Self-destruct
+    setTimeout(() => {
+      particles.value = particles.value.filter(p => p.id !== id)
+    }, 900)
+  }
+}
+
+// Watch for matched gems to spawn particles
+watch(() => props.gameState, (state) => {
+  if (state === 'removing') {
+    for (const gem of props.gems) {
+      if (gem.matched) {
+        spawnBurst(gem)
+      }
+    }
+  }
+})
 
 function gemStyle(gem: Gem) {
   const size = 100 / props.gridSize
@@ -97,19 +161,52 @@ function onPointerUp(e: PointerEvent) {
     @pointerdown.prevent="onPointerDown"
     @pointerup.prevent="onPointerUp"
   >
-    <!-- Grid background lines -->
-    <svg class="board-grid-lines" :viewBox="`0 0 ${gridSize} ${gridSize}`">
+    <!-- Board glow border -->
+    <div class="board-glow-border"></div>
+
+    <!-- Grid background lines (enhanced) -->
+    <svg class="board-grid-lines" :viewBox="`0 0 ${gridSize} ${gridSize}`" preserveAspectRatio="none">
       <line
         v-for="i in gridSize - 1" :key="'h' + i"
         :x1="0" :y1="i" :x2="gridSize" :y2="i"
-        stroke="rgba(255,255,255,0.06)" stroke-width="0.03"
+        stroke="rgba(255,255,255,0.08)" stroke-width="0.025"
       />
       <line
         v-for="i in gridSize - 1" :key="'v' + i"
         :x1="i" :y1="0" :x2="i" :y2="gridSize"
-        stroke="rgba(255,255,255,0.06)" stroke-width="0.03"
+        stroke="rgba(255,255,255,0.08)" stroke-width="0.025"
       />
     </svg>
+
+    <!-- Background dots at intersections -->
+    <div class="board-dots">
+      <div
+        v-for="dot in gridDots" :key="'dot-' + dot.row + '-' + dot.col"
+        class="board-dot"
+        :style="{
+          left: ((dot.col + 0.5) / gridSize * 100) + '%',
+          top: ((dot.row + 0.5) / gridSize * 100) + '%',
+        }"
+      ></div>
+    </div>
+
+    <!-- Particle layer -->
+    <div class="particle-layer">
+      <div
+        v-for="p in particles" :key="p.id"
+        class="particle"
+        :style="{
+          left: p.x + '%',
+          top: p.y + '%',
+          width: p.size + 'px',
+          height: p.size + 'px',
+          background: p.color,
+          '--tx': p.tx + 'px',
+          '--ty': p.ty + 'px',
+          animationDelay: p.delay + 's',
+        }"
+      ></div>
+    </div>
 
     <!-- Gems -->
     <div
@@ -129,7 +226,7 @@ function onPointerUp(e: PointerEvent) {
       <GemTile :type="gem.type" :selected="gem.isSelected" />
     </div>
 
-    <!-- Score popups -->
+    <!-- Score popups (enhanced) -->
     <div
       v-for="popup in scorePopups" :key="popup.id"
       class="score-popup"
@@ -138,7 +235,8 @@ function onPointerUp(e: PointerEvent) {
         top: `${(popup.y + 0.5) * (100 / gridSize)}%`,
       }"
     >
-      +{{ popup.score }}{{ popup.key }}
+      <span class="score-popup-num">+{{ popup.score.toLocaleString() }}</span>
+      <span v-if="popup.key" class="score-popup-combo">{{ popup.key }}</span>
     </div>
   </div>
 </template>
@@ -151,8 +249,10 @@ function onPointerUp(e: PointerEvent) {
   border: 2px solid rgba(255,255,255,0.08);
   box-shadow:
     0 8px 32px rgba(0,0,0,0.4),
-    inset 0 1px 0 rgba(255,255,255,0.06);
-  overflow: hidden;
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 0 30px rgba(106, 130, 251, 0.06),
+    0 0 60px rgba(106, 130, 251, 0.03);
+  overflow: visible;
   touch-action: none;
   user-select: none;
   --board-size: min(calc(100vw - 24px), calc(100dvh - 130px));
@@ -160,14 +260,86 @@ function onPointerUp(e: PointerEvent) {
   height: var(--board-size);
 }
 
+/* ========== Board Glow Border ========== */
+.board-glow-border {
+  position: absolute;
+  inset: -4px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(240, 147, 251, 0.15), rgba(106, 130, 251, 0.15), rgba(81, 207, 102, 0.10));
+  z-index: -1;
+  animation: borderGlow 4s ease-in-out infinite alternate;
+  filter: blur(4px);
+  pointer-events: none;
+}
+
+@keyframes borderGlow {
+  0% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+/* ========== Grid Lines ========== */
 .board-grid-lines {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
+  z-index: 0;
 }
 
+/* ========== Board Dots ========== */
+.board-dots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.board-dot {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  transform: translate(-50%, -50%);
+}
+
+/* ========== Particle Layer ========== */
+.particle-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 8;
+  overflow: visible;
+}
+
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: particleBurst 0.7s ease-out forwards;
+  pointer-events: none;
+  box-shadow: 0 0 6px currentColor, 0 0 12px currentColor;
+}
+
+@keyframes particleBurst {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.1);
+  }
+}
+
+/* ========== Gem Wrapper ========== */
 .gem-wrapper {
   transition: top 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
               left 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -177,7 +349,7 @@ function onPointerUp(e: PointerEvent) {
 }
 
 .gem-wrapper.matched {
-  animation: gemMatched 0.3s ease-out forwards;
+  animation: gemMatched 0.35s ease-out forwards;
   z-index: 3;
   pointer-events: none;
 }
@@ -200,12 +372,12 @@ function onPointerUp(e: PointerEvent) {
     transform: scale(1);
     opacity: 1;
   }
-  30% {
-    transform: scale(1.2);
+  25% {
+    transform: scale(1.25);
     opacity: 0.9;
   }
   100% {
-    transform: scale(0.2);
+    transform: scale(0.1);
     opacity: 0;
   }
 }
@@ -227,39 +399,93 @@ function onPointerUp(e: PointerEvent) {
 @keyframes gemSelected {
   0%, 100% {
     transform: scale(1);
-    filter: drop-shadow(0 0 6px rgba(255,255,255,0.3));
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.3));
   }
   50% {
     transform: scale(1.06);
-    filter: drop-shadow(0 0 14px rgba(255,255,255,0.5));
+    filter: drop-shadow(0 0 20px rgba(255,255,255,0.5));
   }
 }
 
+/* ========== Score Popups (enhanced) ========== */
 .score-popup {
   position: absolute;
   transform: translate(-50%, -50%);
-  color: #ffd43b;
-  font-size: clamp(12px, 3vw, 20px);
-  font-weight: 800;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.5), 0 0 20px rgba(255,212,59,0.3);
   pointer-events: none;
   z-index: 10;
   animation: scoreFloat 1s ease-out forwards;
   white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.score-popup-num {
+  font-family: 'Orbitron', 'Nunito', monospace;
+  font-size: clamp(14px, 3.5vw, 24px);
+  font-weight: 800;
+  color: #ffd43b;
+  text-shadow:
+    0 0 10px rgba(255, 212, 59, 0.6),
+    0 0 30px rgba(255, 212, 59, 0.3),
+    0 2px 8px rgba(0,0,0,0.5);
+  animation: scoreNumPop 0.3s ease-out;
+}
+
+.score-popup-combo {
+  font-size: clamp(10px, 2.5vw, 16px);
+  font-weight: 800;
+  color: #ff6b6b;
+  text-shadow:
+    0 0 8px rgba(255, 107, 107, 0.5),
+    0 0 20px rgba(255, 107, 107, 0.2);
+  animation: comboLabelPop 0.3s ease-out;
 }
 
 @keyframes scoreFloat {
   0% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(0.5);
+    transform: translate(-50%, -50%) scale(0.3);
   }
-  30% {
+  20% {
     opacity: 1;
-    transform: translate(-50%, -80%) scale(1.2);
+    transform: translate(-50%, -80%) scale(1.3) rotate(-5deg);
+  }
+  40% {
+    transform: translate(-50%, -100%) scale(1.1) rotate(3deg);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -150%) scale(0.8);
+    transform: translate(-50%, -180%) scale(0.8) rotate(0deg);
+  }
+}
+
+@keyframes scoreNumPop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes comboLabelPop {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 </style>
